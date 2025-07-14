@@ -626,6 +626,8 @@ module cheshire_soc import cheshire_pkg::*; #(
 
     `FF(mem_rvalid, mem_req, 1'b0, clk_i, ndmreset_n)
 
+    `FF(mem_rvalid, mem_req, 1'b0, clk_i, ndmreset_n)
+
     axi_to_mem #(
       .axi_req_t    (axi_ext_llc_req_t),
       .axi_resp_t   (axi_ext_llc_rsp_t),
