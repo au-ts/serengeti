@@ -212,6 +212,7 @@ package cheshire_pkg;
     aw_bt   DmaConfAmoNumCuts;
     bit     DmaConfAmoPostCut;
     bit     DmaConfEnableTwoD;
+    bit     DmaPostCut;
     dw_bt   DmaNumAxInFlight;
     dw_bt   DmaMemSysDepth;
     aw_bt   DmaJobFifoDepth;
@@ -722,6 +723,7 @@ package cheshire_pkg;
     DmaConfAmoNumCuts   : 1,
     DmaConfAmoPostCut   : 1,
     DmaConfEnableTwoD   : 1,
+    DmaPostCut          : 1,
     DmaNumAxInFlight    : 16,
     DmaMemSysDepth      : 8,
     DmaJobFifoDepth     : 2,
