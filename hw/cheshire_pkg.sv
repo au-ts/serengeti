@@ -185,6 +185,7 @@ package cheshire_pkg;
     axi_llc_pkg::algorithm_e LlcRemapHash;
     dw_bt   LlcUserMsb;
     dw_bt   LlcUserLsb;
+    bit     MainMemUseSRAM;
     // Parameters for VGA
     byte_bt VgaRedWidth;
     byte_bt VgaGreenWidth;
