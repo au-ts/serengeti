@@ -1,3 +1,13 @@
+# Serengeti
+
+Serengeti is a superset of the Cheshire SoC including additional peripherals and debugging features for research work at Trustworthy Systems.
+
+Current extension list over Cheshire:
+
+* Peripheral timer: APB timer
+* Debug core capable of hard resetting the SoC
+* External routing of I2C wires
+
 # Cheshire
 
 Cheshire is a minimal Linux-capable host platform built around the RISC-V [CVA6](https://github.com/openhwgroup/cva6) core. Its goal is to provide a *lightweight*, *configurable*, *autonomously booting* host to systems that need one, from minimal Linux-capable SoCs to manycore compute accelerators.
