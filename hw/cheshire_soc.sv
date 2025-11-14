@@ -544,7 +544,7 @@ module cheshire_soc import cheshire_pkg::*; #(
         .reg_rsp_t        ( reg_rsp_t           )
       ) i_tagger (
         .clk_i,
-        .rst_ni,
+        .rst_ni           ( ndmreset_n                 ),
         .slv_req_i        ( axi_llc_remap_req          ),
         .slv_rsp_o        ( axi_llc_remap_rsp          ),
         .mst_req_o        ( tagger_req                 ),
