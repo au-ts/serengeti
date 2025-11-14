@@ -7,6 +7,7 @@ Current extension list over Cheshire:
 * Peripheral timer: APB timer
 * Debug core capable of hard resetting the SoC
 * External routing of I2C wires
+* LLC partitioning, based on [Enrico Zelioli's CVA6 flamingo work](https://github.com/pulp-platform/cheshire/commits/flamingo).
 
 # Cheshire
 
