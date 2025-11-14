@@ -32,7 +32,7 @@ packages:
     - common_verification
     - tech_cells_generic
   axi_llc:
-    revision: d800836254e91d182fc3a0887ad7ad6dc9bae1ab
+    revision: a01d33cf7cc539a20c08917f525aa90e27eb7de6
     version: null
     source:
       Git: https://github.com/au-ts/serengeti_axi_llc.git
