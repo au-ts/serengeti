@@ -23,8 +23,8 @@ packages:
     - obi_peripherals
     - register_interface
   axi:
-    revision: 78831b6feba265d5ee2683bbf42b4150f8a35c43
-    version: 0.39.8
+    revision: a256a3b86394fedf19e361047fccfdd7f6ef83e4
+    version: 0.39.9
     source:
       Git: https://github.com/pulp-platform/axi.git
     dependencies:
@@ -32,7 +32,7 @@ packages:
     - common_verification
     - tech_cells_generic
   axi_llc:
-    revision: a01d33cf7cc539a20c08917f525aa90e27eb7de6
+    revision: e18226d5f77a545cc479b0c388276fcdd7c751fe
     version: null
     source:
       Git: https://github.com/au-ts/serengeti_axi_llc.git
@@ -93,8 +93,8 @@ packages:
     - common_cells
     - register_interface
   common_cells:
-    revision: 9afda9abb565971649c2aa0985639c096f351171
-    version: 1.38.0
+    revision: 9ca8a7655f741e7dd5736669a20a301325194c28
+    version: 1.39.0
     source:
       Git: https://github.com/pulp-platform/common_cells.git
     dependencies:
@@ -107,7 +107,7 @@ packages:
       Git: https://github.com/pulp-platform/common_verification.git
     dependencies: []
   cva6:
-    revision: 7e538e7058ced6392c9b6e68cf68c3e483ce7521
+    revision: 27a00a9e1762362a57d73ff9e80da0d175b039c8
     version: null
     source:
       Git: https://github.com/au-ts/serengeti_cva6.git
@@ -185,8 +185,8 @@ packages:
     - register_interface
     - tech_cells_generic
   register_interface:
-    revision: 8e8c209ea559d3b54f45cf30fcce95ce70ff5e49
-    version: 0.4.6
+    revision: d6e1d4cdaab7870f4faf3f88a1c788eaf5ac129d
+    version: 0.4.7
     source:
       Git: https://github.com/pulp-platform/register_interface.git
     dependencies:
