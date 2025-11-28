@@ -8,6 +8,8 @@
 // Thomas Benz <tbenz@iis.ee.ethz.ch>
 // Alessandro Ottaviano <aottaviano@iis.ee.ethz.ch>
 
+`include "common_cells/registers.svh"
+
 module cheshire_soc import cheshire_pkg::*; #(
   // Cheshire config
   parameter cheshire_cfg_t Cfg = '0,
@@ -21,13 +23,17 @@ module cheshire_soc import cheshire_pkg::*; #(
   parameter type axi_ext_slv_req_t  = logic,
   parameter type axi_ext_slv_rsp_t  = logic,
   parameter type reg_ext_req_t      = logic,
-  parameter type reg_ext_rsp_t      = logic
+  parameter type reg_ext_rsp_t      = logic,
+  parameter type impl_in_t          = logic,
+  parameter type rvfi_ext_t         = logic
 ) (
   input  logic        clk_i,
   input  logic        rst_ni,
   input  logic        test_mode_i,
   input  logic [1:0]  boot_mode_i,
   input  logic        rtc_i,
+  input  impl_in_t [Cfg.Cva6IcacheSetAssoc+Cfg.Cva6DcacheSetAssoc:0] cva6_sram_impl_i,
+  input  impl_in_t [2*Cfg.LlcSetAssoc-1:0] llc_sram_impl_i,
   // External AXI LLC (DRAM) port
   output axi_ext_llc_req_t axi_llc_mst_req_o,
   input  axi_ext_llc_rsp_t axi_llc_mst_rsp_i,
@@ -105,7 +111,9 @@ module cheshire_soc import cheshire_pkg::*; #(
   output logic [UsbNumPorts-1:0] usb_dm_oe_o,
   input  logic [UsbNumPorts-1:0] usb_dp_i,
   output logic [UsbNumPorts-1:0] usb_dp_o,
-  output logic [UsbNumPorts-1:0] usb_dp_oe_o
+  output logic [UsbNumPorts-1:0] usb_dp_oe_o,
+  // RVFI
+  output rvfi_ext_t [Cfg.NumCores-1:0] rvfi_o
 );
 
   `include "axi/typedef.svh"
@@ -519,29 +527,69 @@ module cheshire_soc import cheshire_pkg::*; #(
       axi_llc_cut_rsp = axi_llc_remap_rsp;
     end
 
+    axi_slv_req_t tagger_req;
+    axi_slv_rsp_t tagger_rsp;
+
+    if (Cfg.LlcCachePartition) begin : gen_tagger
+      tagger #(
+        .DATA_WIDTH       ( Cfg.AxiDataWidth    ),
+        .ADDR_WIDTH       ( Cfg.AddrWidth       ),
+        .MAXPARTITION     ( Cfg.LlcMaxPartition ),
+        .AXI_USER_ID_MSB  ( Cfg.LlcUserMsb      ),
+        .AXI_USER_ID_LSB  ( Cfg.LlcUserLsb      ),
+        .TAGGER_GRAN      ( 3                   ),
+        .axi_req_t        ( axi_slv_req_t       ),
+        .axi_rsp_t        ( axi_slv_rsp_t       ),
+        .reg_req_t        ( reg_req_t           ),
+        .reg_rsp_t        ( reg_rsp_t           )
+      ) i_tagger (
+        .clk_i,
+        .rst_ni           ( ndmreset_n                 ),
+        .slv_req_i        ( axi_llc_remap_req          ),
+        .slv_rsp_o        ( axi_llc_remap_rsp          ),
+        .mst_req_o        ( tagger_req                 ),
+        .mst_rsp_i        ( tagger_rsp                 ),
+        .cfg_req_i        ( reg_out_req[RegOut.tagger] ),
+        .cfg_rsp_o        ( reg_out_rsp[RegOut.tagger] )
+      );
+    end else begin : gen_no_tagger
+      assign tagger_req = axi_llc_remap_req;
+      assign axi_llc_remap_rsp = tagger_rsp;
+    end
+
+    axi_ext_llc_req_t axi_llc_mst_req;
+    axi_ext_llc_rsp_t axi_llc_mst_rsp;
+
     axi_llc_reg_wrap #(
-      .SetAssociativity ( Cfg.LlcSetAssoc  ),
-      .NumLines         ( Cfg.LlcNumLines  ),
-      .NumBlocks        ( Cfg.LlcNumBlocks ),
-      .AxiIdWidth       ( AxiSlvIdWidth    ),
-      .AxiAddrWidth     ( Cfg.AddrWidth    ),
-      .AxiDataWidth     ( Cfg.AxiDataWidth ),
-      .AxiUserWidth     ( Cfg.AxiUserWidth ),
-      .slv_req_t        ( axi_slv_req_t ),
-      .slv_resp_t       ( axi_slv_rsp_t ),
-      .mst_req_t        ( axi_ext_llc_req_t ),
-      .mst_resp_t       ( axi_ext_llc_rsp_t ),
-      .reg_req_t        ( reg_req_t ),
-      .reg_resp_t       ( reg_rsp_t ),
-      .rule_full_t      ( addr_rule_t )
+      .SetAssociativity ( Cfg.LlcSetAssoc       ),
+      .NumLines         ( Cfg.LlcNumLines       ),
+      .NumBlocks        ( Cfg.LlcNumBlocks      ),
+      .CachePartition   ( Cfg.LlcCachePartition ),
+      .MaxPartition     ( Cfg.LlcMaxPartition   ),
+      .RemapHash        ( Cfg.LlcRemapHash      ),
+      .AxiIdWidth       ( AxiSlvIdWidth         ),
+      .AxiAddrWidth     ( Cfg.AddrWidth         ),
+      .AxiDataWidth     ( Cfg.AxiDataWidth      ),
+      .AxiUserWidth     ( Cfg.AxiUserWidth      ),
+      .AxiUserIdMsb     ( Cfg.LlcUserMsb        ),
+      .AxiUserIdLsb     ( Cfg.LlcUserLsb        ),
+      .slv_req_t        ( axi_slv_req_t         ),
+      .slv_resp_t       ( axi_slv_rsp_t         ),
+      .mst_req_t        ( axi_ext_llc_req_t     ),
+      .mst_resp_t       ( axi_ext_llc_rsp_t     ),
+      .reg_req_t        ( reg_req_t             ),
+      .reg_resp_t       ( reg_rsp_t             ),
+      .rule_full_t      ( addr_rule_t           ),
+      .impl_in_t        ( impl_in_t             )
     ) i_llc (
       .clk_i,
       .rst_ni              ( ndmreset_n ),
       .test_i              ( test_mode_i ),
-      .slv_req_i           ( axi_llc_remap_req ),
-      .slv_resp_o          ( axi_llc_remap_rsp ),
-      .mst_req_o           ( axi_llc_mst_req_o ),
-      .mst_resp_i          ( axi_llc_mst_rsp_i ),
+      .sram_impl_i         ( llc_sram_impl_i ),
+      .slv_req_i           ( tagger_req ),
+      .slv_resp_o          ( tagger_rsp ),
+      .mst_req_o           ( axi_llc_mst_req ),
+      .mst_resp_i          ( axi_llc_mst_rsp ),
       .conf_req_i          ( reg_out_req[RegOut.llc] ),
       .conf_resp_o         ( reg_out_rsp[RegOut.llc] ),
       .cached_start_addr_i ( addr_t'(Cfg.LlcOutRegionStart) ),
@@ -549,6 +597,96 @@ module cheshire_soc import cheshire_pkg::*; #(
       .spm_start_addr_i    ( addr_t'(AmSpm) ),
       .axi_llc_events_o    ( /* TODO: connect me to regs? */ )
     );
+
+    if (Cfg.MainMemUseSRAM) begin : gen_main_mem_sram
+
+      axi_ext_llc_req_t axi_mem_req;
+      axi_ext_llc_rsp_t axi_mem_rsp;
+
+      axi_cut #(
+        .Bypass       (1'b0),
+        .aw_chan_t    (axi_llc_aw_chan_t),
+        .w_chan_t     (axi_llc_w_chan_t),
+        .b_chan_t     (axi_llc_b_chan_t),
+        .ar_chan_t    (axi_llc_ar_chan_t),
+        .r_chan_t     (axi_llc_r_chan_t),
+        .axi_req_t    (axi_llc_req_t),
+        .axi_resp_t   (axi_llc_rsp_t)
+      ) i_axi_mem_cut (
+        .clk_i,
+        .rst_ni     (ndmreset_n),
+        .slv_req_i  (axi_llc_mst_req),
+        .slv_resp_o (axi_llc_mst_rsp),
+        .mst_req_o  (axi_mem_req),
+        .mst_resp_i (axi_mem_rsp)
+      );
+
+    `FF(mem_rvalid, mem_req, 1'b0, clk_i, ndmreset_n)
+
+      logic mem_req, mem_we, mem_rvalid;
+      logic [Cfg.AddrWidth-1:0] mem_addr;
+      logic [Cfg.AxiDataWidth-1:0] mem_wdata, mem_rdata;
+      logic [(Cfg.AxiDataWidth/8)-1:0] mem_strb;
+
+      `FF(mem_rvalid, mem_req, 1'b0, clk_i, ndmreset_n)
+
+      axi_to_mem #(
+        .axi_req_t    (axi_ext_llc_req_t),
+        .axi_resp_t   (axi_ext_llc_rsp_t),
+        .AddrWidth    (Cfg.AddrWidth),
+        .DataWidth    (Cfg.AxiDataWidth),
+        .IdWidth      (AxiSlvIdWidth+1),
+        .NumBanks     (1),
+        .BufDepth     (1),
+        .HideStrb     (1'b0),
+        .OutFifoDepth (1)
+      ) i_axi_to_main_mem (
+        .clk_i,
+        .rst_ni       (ndmreset_n),
+        .busy_o       (),
+        .axi_req_i    (axi_mem_req),
+        .axi_resp_o   (axi_mem_rsp),
+        .mem_req_o    (mem_req),
+        .mem_gnt_i    (1'b1),
+        .mem_addr_o   (mem_addr),
+        .mem_wdata_o  (mem_wdata),
+        .mem_strb_o   (mem_strb),
+        .mem_atop_o   (),
+        .mem_we_o     (mem_we),
+        .mem_rvalid_i (mem_rvalid),
+        .mem_rdata_i  (mem_rdata)
+      );
+
+      localparam int NumWords = 1024*1024*8/Cfg.AxiDataWidth; // 1 MiB
+
+      tc_sram #(
+        .NumWords    (NumWords),
+        .DataWidth   (Cfg.AxiDataWidth),
+        .ByteWidth   (8),
+        .NumPorts    (1),
+        .Latency     (1),
+        .SimInit     ("zeros"),
+        .PrintSimCfg (0),
+        .ImplKey     ("none")
+      ) i_main_mem (
+        .clk_i,
+        .rst_ni  (ndmreset_n),
+        .req_i   (mem_req),
+        .we_i    (mem_we),
+        .addr_i  (mem_addr[$clog2(Cfg.AxiDataWidth/8)+:$clog2(NumWords)]),
+        .wdata_i (mem_wdata),
+        .be_i    (mem_strb),
+        .rdata_o (mem_rdata)
+      );
+
+      assign axi_llc_mst_req_o  = '0;
+
+    end else begin : gen_main_mem_out
+
+      assign axi_llc_mst_req_o  = axi_llc_mst_req;
+      assign axi_llc_mst_rsp = axi_llc_mst_rsp_i;
+
+    end
 
   end else if (Cfg.LlcOutConnect) begin : gen_llc_bypass
 
@@ -569,7 +707,7 @@ module cheshire_soc import cheshire_pkg::*; #(
 
   `CHESHIRE_TYPEDEF_AXI_CT(axi_cva6, addr_t, cva6_id_t, axi_data_t, axi_strb_t, axi_user_t)
 
-  localparam config_pkg::cva6_user_cfg_t Cva6Cfg = gen_cva6_cfg(Cfg);
+  localparam config_pkg::cva6_cfg_t Cva6Cfg = build_config_pkg::build_config(gen_cva6_cfg(Cfg));
 
   // Boot from boot ROM only if available, otherwise from platform ROM
   localparam logic [63:0] BootAddr = 64'(Cfg.Bootrom ? AmBrom : Cfg.PlatformRom);
@@ -612,18 +750,23 @@ module cheshire_soc import cheshire_pkg::*; #(
     logic              clic_irq_v;
     logic [5:0]        clic_irq_vsid;
 
+    // Tracer interface
+    rvfi_probes_t rvfi_probes;
+
     cva6 #(
-      .CVA6Cfg        ( build_config_pkg::build_config(Cva6Cfg) ),
+      .CVA6Cfg        ( Cva6Cfg            ),
       .axi_ar_chan_t  ( axi_cva6_ar_chan_t ),
       .axi_aw_chan_t  ( axi_cva6_aw_chan_t ),
       .axi_w_chan_t   ( axi_cva6_w_chan_t  ),
       .b_chan_t       ( axi_cva6_b_chan_t  ),
       .r_chan_t       ( axi_cva6_r_chan_t  ),
       .noc_req_t      ( axi_cva6_req_t ),
-      .noc_resp_t     ( axi_cva6_rsp_t )
+      .noc_resp_t     ( axi_cva6_rsp_t ),
+      .impl_in_t      ( impl_in_t )
     ) i_core_cva6 (
       .clk_i,
       .rst_ni           ( ndmreset_n ),
+      .sram_impl_i      ( cva6_sram_impl_i ),
       .boot_addr_i      ( BootAddr ),
       .hart_id_i        ( 64'(i) ),
       .irq_i            ( xeip[i] ),
@@ -640,11 +783,28 @@ module cheshire_soc import cheshire_pkg::*; #(
       .clic_irq_ready_o ( clic_irq_ready ),
       .clic_kill_req_i  ( clic_irq_kill_req ),
       .clic_kill_ack_o  ( clic_irq_kill_ack ),
-      .rvfi_probes_o    ( ),
+      .rvfi_probes_o    ( rvfi_probes ),
       .cvxif_req_o      ( ),
       .cvxif_resp_i     ( '0 ),
       .noc_req_o        ( core_out_req ),
       .noc_resp_i       ( core_out_rsp )
+    );
+
+    cva6_rvfi #(
+      .CVA6Cfg             ( Cva6Cfg             ),
+      .rvfi_instr_t        ( rvfi_instr_t        ),
+      .rvfi_csr_t          ( rvfi_csr_t          ),
+      .rvfi_probes_instr_t ( rvfi_probes_instr_t ),
+      .rvfi_probes_csr_t   ( rvfi_probes_csr_t   ),
+      .rvfi_probes_t       ( rvfi_probes_t       ),
+      .rvfi_to_iti_t       ( rvfi_to_iti_t       )
+    ) i_cva6_rvfi (
+      .clk_i         ( clk_i           ),
+      .rst_ni        ( rst_ni          ),
+      .rvfi_probes_i ( rvfi_probes     ),
+      .rvfi_instr_o  ( rvfi_o[i].instr ),
+      .rvfi_to_iti_o (                 ),
+      .rvfi_csr_o    ( rvfi_o[i].csr   )
     );
 
     if (Cfg.BusErr) begin : gen_cva6_bus_err
@@ -1491,6 +1651,9 @@ module cheshire_soc import cheshire_pkg::*; #(
       axi_in_req[AxiIn.dma].ar.user = Cfg.AxiUserDefault;
     end
 
+    axi_mst_req_t axi_dma_req_precut;
+    axi_mst_rsp_t axi_dma_rsp_precut;
+
     cheshire_idma_wrap #(
       .AxiAddrWidth     ( Cfg.AddrWidth     ),
       .AxiDataWidth     ( Cfg.AxiDataWidth  ),
@@ -1510,10 +1673,28 @@ module cheshire_soc import cheshire_pkg::*; #(
       .clk_i,
       .rst_ni         ( ndmreset_n ),
       .testmode_i     ( test_mode_i ),
-      .axi_mst_req_o  ( axi_dma_req           ),
-      .axi_mst_rsp_i  ( axi_in_rsp[AxiIn.dma] ),
+      .axi_mst_req_o  ( axi_dma_req_precut ),
+      .axi_mst_rsp_i  ( axi_dma_rsp_precut ),
       .axi_slv_req_i  ( dma_cut_req ),
       .axi_slv_rsp_o  ( dma_cut_rsp )
+    );
+
+    axi_cut #(
+      .Bypass     ( ~Cfg.DmaPostCut   ),
+      .aw_chan_t  ( axi_mst_aw_chan_t ),
+      .w_chan_t   ( axi_mst_w_chan_t  ),
+      .b_chan_t   ( axi_mst_b_chan_t  ),
+      .ar_chan_t  ( axi_mst_ar_chan_t ),
+      .r_chan_t   ( axi_mst_r_chan_t  ),
+      .axi_req_t  ( axi_mst_req_t ),
+      .axi_resp_t ( axi_mst_rsp_t )
+    ) i_idma_axi_rt_cut (
+      .clk_i,
+      .rst_ni,
+      .slv_req_i  ( axi_dma_req_precut    ),
+      .slv_resp_o ( axi_dma_rsp_precut    ),
+      .mst_req_o  ( axi_dma_req           ),
+      .mst_resp_i ( axi_in_rsp[AxiIn.dma] )
     );
 
     if (Cfg.BusErr) begin : gen_dma_bus_err

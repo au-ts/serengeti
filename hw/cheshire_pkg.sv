@@ -73,6 +73,28 @@ package cheshire_pkg;
     // control the CIE region's size and whether it abuts with the top or bottom of this range.
     doub_bt Cva6ExtCieLength;
     bit     Cva6ExtCieOnTop;
+    shrt_bt Cva6NrScoreboardEntries;
+    shrt_bt Cva6MaxOutstandingStores;
+    word_bt Cva6IcacheByteSize;
+    shrt_bt Cva6IcacheSetAssoc;
+    shrt_bt Cva6IcacheLineWidth;
+    doub_bt Cva6ICacheSpmAddrBase;
+    config_pkg::cache_type_t Cva6DCacheType;
+    word_bt Cva6DcacheByteSize;
+    shrt_bt Cva6DcacheSetAssoc;
+    shrt_bt Cva6DcacheLineWidth;
+    bit     Cva6DcacheFlushOnFence;
+    bit     Cva6DcacheInvalidateOnFlush;
+    shrt_bt Cva6InstrTlbEntries;
+    shrt_bt Cva6DataTlbEntries;
+    shrt_bt Cva6LockableTlbWays;
+    shrt_bt Cva6NumTlbColors;
+    bit     Cva6UseSharedTlb;
+    shrt_bt Cva6SharedTlbDepth;
+    shrt_bt Cva6NrLoadPipeRegs;
+    shrt_bt Cva6NrStorePipeRegs;
+    shrt_bt Cva6DcacheIdWidth;
+    bit     Cva6SuperscalarEn;
     // Hart parameters
     bit [MaxCoresWidth-1:0] NumCores;
     doub_bt NumExtIrqHarts;
@@ -158,6 +180,12 @@ package cheshire_pkg;
     bit     LlcOutConnect;
     doub_bt LlcOutRegionStart;
     doub_bt LlcOutRegionEnd;
+    bit     LlcCachePartition;
+    shrt_bt LlcMaxPartition;
+    axi_llc_pkg::algorithm_e LlcRemapHash;
+    dw_bt   LlcUserMsb;
+    dw_bt   LlcUserLsb;
+    bit     MainMemUseSRAM;
     // Parameters for VGA
     byte_bt VgaRedWidth;
     byte_bt VgaGreenWidth;
@@ -185,6 +213,7 @@ package cheshire_pkg;
     aw_bt   DmaConfAmoNumCuts;
     bit     DmaConfAmoPostCut;
     bit     DmaConfEnableTwoD;
+    bit     DmaPostCut;
     dw_bt   DmaNumAxInFlight;
     dw_bt   DmaMemSysDepth;
     aw_bt   DmaJobFifoDepth;
@@ -289,6 +318,7 @@ package cheshire_pkg;
   localparam doub_bt AmLlc    = 'h0300_1000;
   localparam doub_bt AmSlink  = 'h0300_6000;
   localparam doub_bt AmBusErr = 'h0300_9000;
+  localparam doub_bt AmTagger = 'h0300_A000;
   localparam doub_bt AmSpm    = 'h1000_0000;  // Cached region at bottom, uncached on top
   localparam doub_bt AmSpmUnc = 'h1400_0000;
   localparam doub_bt AmClic   = 'h0800_0000;
@@ -409,6 +439,7 @@ package cheshire_pkg;
     aw_bt irq_router;
     aw_bt [2**MaxCoresWidth-1:0] bus_err;
     aw_bt [2**MaxCoresWidth-1:0] clic;
+    aw_bt tagger;
     aw_bt ext_base;
     aw_bt num_out;
     aw_bt num_rules;
@@ -436,6 +467,7 @@ package cheshire_pkg;
     if (cfg.Clic) for (int j = 0; j < cfg.NumCores; j++) begin
       i++; ret.clic[j]    = i; r++; ret.map[r] = '{i, AmClic + j*'h40000, AmClic + (j+1)*'h40000};
     end
+    if (cfg.LlcCachePartition) begin i++; ret.tagger = i; r++; ret.map[r] = '{i, AmTagger,  AmTagger + 'h100}; end
     if (cfg.BusErr) for (int j = 0; j < 2 + cfg.NumCores; j++) begin
       i++; ret.bus_err[j] = i; r++; ret.map[r] = '{i, AmBusErr + j*'h40,  AmBusErr + (j+1)*'h40};
     end
@@ -497,6 +529,7 @@ package cheshire_pkg;
     doub_bt SizeLlcOut = cfg.LlcOutRegionEnd - cfg.LlcOutRegionStart;
     doub_bt CieBase   = cfg.Cva6ExtCieOnTop ? 64'h8000_0000 - cfg.Cva6ExtCieLength : 64'h2000_0000;
     doub_bt NoCieBase = cfg.Cva6ExtCieOnTop ? 64'h2000_0000 : 64'h2000_0000 + cfg.Cva6ExtCieLength;
+    doub_bt SlinkRegionLenght = cfg.SlinkRegionEnd - cfg.SlinkRegionStart;
     // Base our config on the upstream default for this variant
     config_pkg::cva6_user_cfg_t ret = cva6_config_pkg::cva6_cfg;
     // Modify what we need to
@@ -512,12 +545,12 @@ package cheshire_pkg;
     ret.NonIdempotentAddrBase = {64'h0000_0000, NoCieBase};
     ret.NOCType               = config_pkg::NOC_TYPE_AXI4_ATOP;
     ret.NonIdempotentLength   = {64'h1000_0000, 64'h6000_0000 - cfg.Cva6ExtCieLength};
-    ret.NrExecuteRegionRules  = 6;   // Debug, Bootrom, SPM, SPM Uncached, LLCOut, ExtCI;
-    ret.ExecuteRegionAddrBase = {AmDbg,     AmBrom,    AmSpm,   AmSpmUnc, cfg.LlcOutRegionStart, CieBase};
-    ret.ExecuteRegionLength   = {64'h40000, 64'h40000, SizeSpm, SizeSpm,  SizeLlcOut,            cfg.Cva6ExtCieLength};
-    ret.NrCachedRegionRules   = 3;   // CachedSPM, LLCOut, ExtCI;
-    ret.CachedRegionAddrBase  = {AmSpm,   cfg.LlcOutRegionStart,  CieBase};
-    ret.CachedRegionLength    = {SizeSpm, SizeLlcOut,             cfg.Cva6ExtCieLength};
+    ret.NrExecuteRegionRules  = 8;   // Debug, Bootrom, SPM, SPM Uncached, ISPM, LLCOut, ExtCI, Slink;
+    ret.ExecuteRegionAddrBase = {AmDbg,     AmBrom,    AmSpm,   AmSpmUnc, cfg.Cva6ICacheSpmAddrBase,   cfg.LlcOutRegionStart, CieBase,              cfg.SlinkRegionStart};
+    ret.ExecuteRegionLength   = {64'h40000, 64'h40000, SizeSpm, SizeSpm,  64'(cfg.Cva6IcacheByteSize), SizeLlcOut,            cfg.Cva6ExtCieLength, SlinkRegionLenght};
+    ret.NrCachedRegionRules   = 4;   // CachedSPM, LLCOut, ExtCI, Slink;
+    ret.CachedRegionAddrBase  = {AmSpm,   cfg.LlcOutRegionStart,  CieBase,              cfg.SlinkRegionStart};
+    ret.CachedRegionLength    = {SizeSpm, SizeLlcOut,             cfg.Cva6ExtCieLength, SlinkRegionLenght};
     ret.DebugEn               = 1;
     ret.RVSCLIC               = cfg.Clic;
     ret.RVXHCLIC              = cfg.ClicVsclic;
@@ -529,6 +562,29 @@ package cheshire_pkg;
     ret.BTBEntries            = cfg.Cva6BTBEntries;
     ret.BHTEntries            = cfg.Cva6BHTEntries;
     ret.NrPMPEntries          = cfg.Cva6NrPMPEntries;
+    ret.NrScoreboardEntries     = cfg.Cva6NrScoreboardEntries;
+    ret.MaxOutstandingStores    = cfg.Cva6MaxOutstandingStores;
+    ret.IcacheByteSize          = cfg.Cva6IcacheByteSize;
+    ret.IcacheSetAssoc          = cfg.Cva6IcacheSetAssoc;
+    ret.IcacheLineWidth         = cfg.Cva6IcacheLineWidth;
+    ret.ICacheSpmAddrBase       = cfg.Cva6ICacheSpmAddrBase;
+    ret.ICacheSpmLength         = cfg.Cva6IcacheByteSize;
+    ret.DCacheType              = cfg.Cva6DCacheType;
+    ret.DcacheByteSize          = cfg.Cva6DcacheByteSize;
+    ret.DcacheSetAssoc          = cfg.Cva6DcacheSetAssoc;
+    ret.DcacheLineWidth         = cfg.Cva6DcacheLineWidth;
+    ret.DcacheFlushOnFence      = cfg.Cva6DcacheFlushOnFence;
+    ret.DcacheInvalidateOnFlush = cfg.Cva6DcacheInvalidateOnFlush;
+    ret.InstrTlbEntries         = cfg.Cva6InstrTlbEntries;
+    ret.DataTlbEntries          = cfg.Cva6DataTlbEntries;
+    ret.LockableTlbWays         = cfg.Cva6LockableTlbWays;
+    ret.NumTlbColors            = cfg.Cva6NumTlbColors;
+    ret.UseSharedTlb            = cfg.Cva6UseSharedTlb;
+    ret.SharedTlbDepth          = cfg.Cva6SharedTlbDepth;
+    ret.NrLoadPipeRegs          = cfg.Cva6NrLoadPipeRegs;
+    ret.NrStorePipeRegs         = cfg.Cva6NrStorePipeRegs;
+    ret.DcacheIdWidth           = cfg.Cva6DcacheIdWidth;
+    ret.SuperscalarEn           = cfg.Cva6SuperscalarEn;
     // Return modified config
     return ret;
   endfunction
@@ -550,6 +606,28 @@ package cheshire_pkg;
     Cva6NrPMPEntries  : 0,
     Cva6ExtCieLength  : 'h2000_0000,  // [0x2.., 0x4..) is CIE, [0x4.., 0x8..) is non-CIE
     Cva6ExtCieOnTop   : 0,
+    Cva6NrScoreboardEntries     : 8,
+    Cva6MaxOutstandingStores    : 7,
+    Cva6IcacheByteSize          : 16384,
+    Cva6IcacheSetAssoc          : 4,
+    Cva6IcacheLineWidth         : 128,
+    Cva6ICacheSpmAddrBase       : 64'h01A0_0000,
+    Cva6DCacheType              : config_pkg::WB,
+    Cva6DcacheByteSize          : 32768,
+    Cva6DcacheSetAssoc          : 8,
+    Cva6DcacheLineWidth         : 128,
+    Cva6DcacheFlushOnFence      : 1,
+    Cva6DcacheInvalidateOnFlush : 0,
+    Cva6InstrTlbEntries         : 16,
+    Cva6DataTlbEntries          : 64,
+    Cva6LockableTlbWays         : 8,
+    Cva6NumTlbColors            : 16,
+    Cva6UseSharedTlb            : 0,
+    Cva6SharedTlbDepth          : 64,
+    Cva6NrLoadPipeRegs          : 1,
+    Cva6NrStorePipeRegs         : 0,
+    Cva6DcacheIdWidth           : 1,
+    Cva6SuperscalarEn           : 0,
     // Harts
     NumCores          : 1,
     CoreMaxTxns       : 8,
@@ -565,7 +643,7 @@ package cheshire_pkg;
     // Interconnect
     AddrWidth         : 48,
     AxiDataWidth      : 64,
-    AxiUserWidth      : 2,  // AMO(2)
+    AxiUserWidth      : 6,  // Tagger(4), AMO(2)
     AxiMstIdWidth     : 2,
     AxiMaxMstTrans    : 24,
     AxiMaxSlvTrans    : 24,
@@ -614,7 +692,17 @@ package cheshire_pkg;
     LlcAmoPostCut     : 1,
     LlcOutConnect     : 1,
     LlcOutRegionStart : 'h8000_0000,
+    // LlcOutRegionEnd   : 64'h8010_0000,
     LlcOutRegionEnd   : 64'h1_0000_0000,
+    LlcUserMsb        : 5,
+    LlcUserLsb        : 2,
+    LlcCachePartition : 1,
+    LlcMaxPartition   : 16,
+    LlcRemapHash      : axi_llc_pkg::Modulo,
+
+    // IMPORTANT: If changing this, also change LlcOutRegionEnd
+    MainMemUseSRAM    : 0,
+
     // VGA: RGB565
     VgaRedWidth       : 5,
     VgaGreenWidth     : 6,
@@ -642,6 +730,7 @@ package cheshire_pkg;
     DmaConfAmoNumCuts   : 1,
     DmaConfAmoPostCut   : 1,
     DmaConfEnableTwoD   : 1,
+    DmaPostCut          : 1,
     DmaNumAxInFlight    : 16,
     DmaMemSysDepth      : 8,
     DmaJobFifoDepth     : 2,

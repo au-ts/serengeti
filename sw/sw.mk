@@ -81,6 +81,7 @@ $(eval $(call chs_sw_gen_hdr_rule,serial_link,$(CHS_ROOT)/hw/serial_link.hjson $
 $(eval $(call chs_sw_gen_hdr_rule,axi_vga,$(AXI_VGA_ROOT)/data/axi_vga.hjson $(AXI_VGA_ROOT)/.generated))
 $(eval $(call chs_sw_gen_hdr_rule,idma,$(IDMA_ROOT)/target/rtl/idma_reg64_2d.hjson))
 $(eval $(call chs_sw_gen_hdr_rule,axi_llc,$(CHS_LLC_DIR)/data/axi_llc_regs.hjson))
+$(eval $(call chs_sw_gen_hdr_rule,tagger,$(CHS_TAGGER_DIR)/data/tagger_regs.hjson))
 $(eval $(call chs_sw_gen_hdr_rule,cheshire,$(CHS_ROOT)/hw/regs/cheshire_regs.hjson))
 $(eval $(call chs_sw_gen_hdr_rule,axi_rt,$(AXIRTROOT)/src/regs/axi_rt.hjson $(AXIRTROOT)/.generated))
 
@@ -191,6 +192,10 @@ $(foreach link,$(CHS_SW_LINK_MODES),$(eval CHS_SW_TEST_DUMP += $(CHS_SW_TEST_C_L
 # Generate .memh targets for ROM-linked tests
 CHS_SW_TEST_ROM_DUMP = $(filter %.rom.dump,$(CHS_SW_TEST_DUMP))
 CHS_SW_TESTS += $(CHS_SW_TEST_ROM_DUMP:.rom.dump=.rom.memh) $(CHS_SW_TEST_ROM_DUMP:.rom.dump=.gpt.memh)
+
+# Generate .memh targets for DRAM-linked tests
+CHS_SW_TEST_DRAM_DUMP = $(filter %.dram.dump,$(CHS_SW_TEST_DUMP))
+CHS_SW_TESTS += $(CHS_SW_TEST_DRAM_DUMP:.dram.dump=.dram.memh)
 
 # Add all dumps to test build
 CHS_SW_TESTS += $(CHS_SW_TEST_DUMP)
