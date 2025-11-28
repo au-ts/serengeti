@@ -206,8 +206,8 @@ set_property -dict { PACKAGE_PIN W29   IOSTANDARD LVCMOS33 } [get_ports { jtag_t
 set_property -dict { PACKAGE_PIN Y29   IOSTANDARD LVCMOS33 } [get_ports { jtag_trst_ni }]; #IO_L4N_T0_13 Sch=prog_d[4]
 
 # I2C Bus (internal)
-# set_property -dict { PACKAGE_PIN AE30  IOSTANDARD LVCMOS33 } [get_ports { i2c_scl_io }]; #IO_L16P_T2_13 Sch=sys_scl
-# set_property -dict { PACKAGE_PIN AF30  IOSTANDARD LVCMOS33 } [get_ports { i2c_sda_io }]; #IO_L16N_T2_13 Sch=sys_sda
+set_property -dict { PACKAGE_PIN AE30  IOSTANDARD LVCMOS33 } [get_ports { i2c_scl_io }]; #IO_L16P_T2_13 Sch=sys_scl
+set_property -dict { PACKAGE_PIN AF30  IOSTANDARD LVCMOS33 } [get_ports { i2c_sda_io }]; #IO_L16N_T2_13 Sch=sys_sda
 
 # PMOD Header JA (USB 1.1 Adapter)
 set_property -dict { PACKAGE_PIN U27   IOSTANDARD LVCMOS33 } [get_ports { usb_dm_io[3] }]; #IO_L13P_T2_MRCC_14 Sch=ja_p[1]
@@ -221,8 +221,8 @@ set_property -dict { PACKAGE_PIN T21   IOSTANDARD LVCMOS33 } [get_ports { usb_dp
 
 ## PMOD Header JC
 # I2C breakout - JC has internal 200 ohm shunt, safer for external usage.
-set_property -dict { PACKAGE_PIN AC26  IOSTANDARD LVCMOS33 } [get_ports { i2c_scl_io }]; #IO_L19P_T3_13 Sch=jc[1]
-set_property -dict { PACKAGE_PIN AJ27  IOSTANDARD LVCMOS33 } [get_ports { i2c_sda_io }]; #IO_L20P_T3_13 Sch=jc[2]
+#set_property -dict { PACKAGE_PIN AC26  IOSTANDARD LVCMOS33 } [get_ports { i2c_scl_io }]; #IO_L19P_T3_13 Sch=jc[1]
+#set_property -dict { PACKAGE_PIN AJ27  IOSTANDARD LVCMOS33 } [get_ports { i2c_sda_io }]; #IO_L20P_T3_13 Sch=jc[2]
 #set_property -dict { PACKAGE_PIN AH30  IOSTANDARD LVCMOS33 } [get_ports { jc[2] }]; #IO_L18N_T2_13 Sch=jc[3]
 #set_property -dict { PACKAGE_PIN AK29  IOSTANDARD LVCMOS33 } [get_ports { jc[3] }]; #IO_L15P_T2_DQS_13 Sch=jc[4]
 #set_property -dict { PACKAGE_PIN AD26  IOSTANDARD LVCMOS33 } [get_ports { jc[4] }]; #IO_L19N_T3_VREF_13 Sch=jc[7]
