@@ -700,6 +700,135 @@ module cheshire_soc import cheshire_pkg::*; #(
   end
 
   /////////////
+  //   TCM   //
+  /////////////
+
+  begin : gen_tcm
+
+    // axi_out_req[AxiOut.tcm]
+    // -> [i_tcm_atomics]
+    // -> axi_tcm_amo_req
+    // -> [i_tcm_atomics_cut]
+    // -> axi_tcm_cut_req
+    // -> [i_tcm_axi_to_mem]
+    // -> mem_tcm_req
+    // -> [i_tcm]
+
+    ///// [i_tcm_atomics] /////
+
+    axi_slv_req_t axi_tcm_amo_req;
+    axi_slv_rsp_t axi_tcm_amo_rsp;
+
+    // Shim atomics, which are not supported by TCM
+    // TODO: This should be a filter, but how do we filter RISC-V atomics?
+    axi_riscv_atomics_structs #(
+      .AxiAddrWidth     ( Cfg.AddrWidth    ),
+      .AxiDataWidth     ( Cfg.AxiDataWidth ),
+      .AxiIdWidth       ( AxiSlvIdWidth    ),
+      .AxiUserWidth     ( Cfg.AxiUserWidth ),
+      .AxiMaxReadTxns   ( Cfg.TcmMaxReadTxns  ),
+      .AxiMaxWriteTxns  ( Cfg.TcmMaxWriteTxns ),
+      .AxiUserAsId      ( 1 ),
+      .AxiUserIdMsb     ( Cfg.AxiUserAmoMsb ),
+      .AxiUserIdLsb     ( Cfg.AxiUserAmoLsb ),
+      .RiscvWordWidth   ( 64 ),
+      .NAxiCuts         ( Cfg.TcmAmoNumCuts ),
+      .axi_req_t        ( axi_slv_req_t ),
+      .axi_rsp_t        ( axi_slv_rsp_t )
+    ) i_tcm_atomics (
+      .clk_i,
+      .rst_ni        ( ndmreset_n ),
+      .axi_slv_req_i ( axi_out_req[AxiOut.tcm] ),
+      .axi_slv_rsp_o ( axi_out_rsp[AxiOut.tcm] ),
+      .axi_mst_req_o ( axi_tcm_amo_req ),
+      .axi_mst_rsp_i ( axi_tcm_amo_rsp )
+    );
+
+    ///// [i_tcm_atomics_cut] /////
+
+    axi_slv_req_t axi_tcm_cut_req;
+    axi_slv_rsp_t axi_tcm_cut_rsp;
+
+    axi_cut #(
+      .Bypass     ( ~Cfg.TcmAmoPostCut ),
+      .aw_chan_t  ( axi_slv_aw_chan_t ),
+      .w_chan_t   ( axi_slv_w_chan_t  ),
+      .b_chan_t   ( axi_slv_b_chan_t  ),
+      .ar_chan_t  ( axi_slv_ar_chan_t ),
+      .r_chan_t   ( axi_slv_r_chan_t  ),
+      .axi_req_t  ( axi_slv_req_t ),
+      .axi_resp_t ( axi_slv_rsp_t )
+    ) i_tcm_atomics_cut (
+      .clk_i,
+      .rst_ni     ( ndmreset_n ),
+      .slv_req_i  ( axi_tcm_amo_req ),
+      .slv_resp_o ( axi_tcm_amo_rsp ),
+      .mst_req_o  ( axi_tcm_cut_req ),
+      .mst_resp_i ( axi_tcm_cut_rsp )
+    );
+
+    ///// [i_tcm_axi_to_mem] /////
+
+    logic tcm_mem_req, tcm_mem_we, tcm_mem_rvalid;
+    logic [Cfg.AddrWidth-1:0] tcm_mem_addr;
+    logic [Cfg.AxiDataWidth-1:0] tcm_mem_wdata, tcm_mem_rdata;
+    logic [(Cfg.AxiDataWidth/8)-1:0] tcm_mem_strb;
+
+    `FF(tcm_mem_rvalid, tcm_mem_req, 1'b0, clk_i, ndmreset_n)
+
+    axi_to_mem #(
+      .axi_req_t    (axi_slv_req_t),
+      .axi_resp_t   (axi_slv_rsp_t),
+      .AddrWidth    (Cfg.AddrWidth),
+      .DataWidth    (Cfg.AxiDataWidth),
+      .IdWidth      (AxiSlvIdWidth+1),
+      .NumBanks     (1),
+      .BufDepth     (1),
+      .HideStrb     (1'b0),
+      .OutFifoDepth (1)
+    ) i_tcm_axi_to_mem (
+      .clk_i,
+      .rst_ni       (ndmreset_n),
+      .busy_o       (),
+      .axi_req_i    (axi_tcm_cut_req),
+      .axi_resp_o   (axi_tcm_cut_rsp),
+      .mem_req_o    (tcm_mem_req),
+      .mem_gnt_i    (1'b1),
+      .mem_addr_o   (tcm_mem_addr),
+      .mem_wdata_o  (tcm_mem_wdata),
+      .mem_strb_o   (tcm_mem_strb),
+      .mem_atop_o   (),
+      .mem_we_o     (tcm_mem_we),
+      .mem_rvalid_i (tcm_mem_rvalid),
+      .mem_rdata_i  (tcm_mem_rdata)
+    );
+
+    ///// [i_tcm] /////
+
+    localparam TcmNumWords = Cfg.TcmSize * 8/Cfg.AxiDataWidth;
+
+    tc_sram #(
+      .NumWords    (TcmNumWords),
+      .DataWidth   (Cfg.AxiDataWidth),
+      .ByteWidth   (8),
+      .NumPorts    (1),
+      .Latency     (1),
+      .SimInit     ("zeros"),
+      .PrintSimCfg (0),
+      .ImplKey     ("none")
+    ) i_tcm (
+      .clk_i,
+      .rst_ni  (ndmreset_n),
+      .req_i   (tcm_mem_req),
+      .we_i    (tcm_mem_we),
+      .addr_i  (tcm_mem_addr[$clog2(Cfg.AxiDataWidth/8)+:$clog2(TcmNumWords)]),
+      .wdata_i (tcm_mem_wdata),
+      .be_i    (tcm_mem_strb),
+      .rdata_o (tcm_mem_rdata)
+    );
+  end
+
+  /////////////
   //  Cores  //
   /////////////
 

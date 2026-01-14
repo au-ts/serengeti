@@ -161,6 +161,7 @@ package cheshire_pkg;
     bit     IrqRouter;
     bit     BusErr;
     bit     Timer;
+    bit     Tcm;
     // Parameters for Debug Module
     jtag_idcode_t DbgIdCode;
     dw_bt   DbgMaxReqs;
@@ -185,7 +186,14 @@ package cheshire_pkg;
     axi_llc_pkg::algorithm_e LlcRemapHash;
     dw_bt   LlcUserMsb;
     dw_bt   LlcUserLsb;
+    // Parameters for MainMem/LLC
     bit     MainMemUseSRAM;
+    // Parameters for TCM
+    doub_bt TcmSize;
+    dw_bt   TcmMaxReadTxns;
+    dw_bt   TcmMaxWriteTxns;
+    bit     TcmAmoNumCuts;
+    bit     TcmAmoPostCut;
     // Parameters for VGA
     byte_bt VgaRedWidth;
     byte_bt VgaGreenWidth;
@@ -321,6 +329,7 @@ package cheshire_pkg;
   localparam doub_bt AmTagger = 'h0300_A000;
   localparam doub_bt AmSpm    = 'h1000_0000;  // Cached region at bottom, uncached on top
   localparam doub_bt AmSpmUnc = 'h1400_0000;
+  localparam doub_bt AmTcm    = 'h1800_0000;
   localparam doub_bt AmClic   = 'h0800_0000;
 
   // Static masks
@@ -373,6 +382,7 @@ package cheshire_pkg;
     aw_bt spm;
     aw_bt dma;
     aw_bt slink;
+    aw_bt tcm;
     aw_bt ext_base;
     aw_bt num_out;
     aw_bt num_rules;
@@ -400,6 +410,12 @@ package cheshire_pkg;
     if (cfg.Dma)          begin i++; r++; ret.dma = i; ret.map[r] = '{i, 'h0100_0000, 'h0100_1000}; end
     if (cfg.SerialLink)   begin i++; r++; ret.slink = i;
         ret.map[r] = '{i, cfg.SlinkRegionStart, cfg.SlinkRegionEnd}; end
+    if (cfg.Tcm) begin
+      i++;
+      r++;
+      ret.tcm = i;
+      ret.map[r] = '{i, AmTcm, AmTcm + cfg.TcmSize};
+    end
     // External port indices start after internal ones
     i++; r++;
     ret.ext_base  = i;
@@ -545,12 +561,12 @@ package cheshire_pkg;
     ret.NonIdempotentAddrBase = {64'h0000_0000, NoCieBase};
     ret.NOCType               = config_pkg::NOC_TYPE_AXI4_ATOP;
     ret.NonIdempotentLength   = {64'h1000_0000, 64'h6000_0000 - cfg.Cva6ExtCieLength};
-    ret.NrExecuteRegionRules  = 8;   // Debug, Bootrom, SPM, SPM Uncached, ISPM, LLCOut, ExtCI, Slink;
-    ret.ExecuteRegionAddrBase = {AmDbg,     AmBrom,    AmSpm,   AmSpmUnc, cfg.Cva6ICacheSpmAddrBase,   cfg.LlcOutRegionStart, CieBase,              cfg.SlinkRegionStart};
-    ret.ExecuteRegionLength   = {64'h40000, 64'h40000, SizeSpm, SizeSpm,  64'(cfg.Cva6IcacheByteSize), SizeLlcOut,            cfg.Cva6ExtCieLength, SlinkRegionLenght};
-    ret.NrCachedRegionRules   = 4;   // CachedSPM, LLCOut, ExtCI, Slink;
-    ret.CachedRegionAddrBase  = {AmSpm,   cfg.LlcOutRegionStart,  CieBase,              cfg.SlinkRegionStart};
-    ret.CachedRegionLength    = {SizeSpm, SizeLlcOut,             cfg.Cva6ExtCieLength, SlinkRegionLenght};
+    ret.NrExecuteRegionRules  = 9;   // Debug, Bootrom, SPM, SPM Uncached, TCM, ISPM, LLCOut, ExtCI, Slink;
+    ret.ExecuteRegionAddrBase = {AmDbg,     AmBrom,    AmSpm,   AmSpmUnc, AmTcm,       cfg.Cva6ICacheSpmAddrBase,   cfg.LlcOutRegionStart, CieBase,              cfg.SlinkRegionStart};
+    ret.ExecuteRegionLength   = {64'h40000, 64'h40000, SizeSpm, SizeSpm,  cfg.TcmSize, 64'(cfg.Cva6IcacheByteSize), SizeLlcOut,            cfg.Cva6ExtCieLength, SlinkRegionLenght};
+    ret.NrCachedRegionRules   = 4;   // CachedSPM, TCM, LLCOut, ExtCI, Slink;
+    ret.CachedRegionAddrBase  = {AmSpm,   AmTcm,       cfg.LlcOutRegionStart,  CieBase,              cfg.SlinkRegionStart};
+    ret.CachedRegionLength    = {SizeSpm, cfg.TcmSize, SizeLlcOut,             cfg.Cva6ExtCieLength, SlinkRegionLenght};
     ret.DebugEn               = 1;
     ret.RVSCLIC               = cfg.Clic;
     ret.RVXHCLIC              = cfg.ClicVsclic;
@@ -674,6 +690,7 @@ package cheshire_pkg;
     IrqRouter         : 0,
     BusErr            : 1,
     Timer             : 1,
+    Tcm               : 1,
     // Debug
     DbgIdCode         : CheshireIdCode,
     DbgMaxReqs        : 4,
@@ -702,6 +719,13 @@ package cheshire_pkg;
 
     // IMPORTANT: If changing this, also change LlcOutRegionEnd
     MainMemUseSRAM    : 0,
+
+    // TCM
+    TcmSize           : 64'h4000, // 16K, max 64M (above AmTcm)
+    TcmMaxReadTxns    : 16,
+    TcmMaxWriteTxns   : 16,
+    TcmAmoNumCuts     : 1,
+    TcmAmoPostCut     : 1,
 
     // VGA: RGB565
     VgaRedWidth       : 5,
