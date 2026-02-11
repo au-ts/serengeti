@@ -105,6 +105,13 @@ module cheshire_top_xilinx import cheshire_pkg::*; #(
   `DDR3_INTF
 `endif
 
+`ifdef USE_PMOD_SPI
+  output logic pmod_spi_cs_o,
+  output logic pmod_spi_mosi_o,
+  input  logic pmod_spi_miso_i,
+  output logic pmod_spi_sck_o,
+`endif
+
   output logic  uart_tx_o,
   input  logic  uart_rx_i,
 
@@ -296,18 +303,20 @@ module cheshire_top_xilinx import cheshire_pkg::*; #(
   ///////////////
 
   logic spi_sck_soc;
-  logic [1:0] spi_cs_soc;
+  logic [2:0] spi_cs_soc;
   logic [3:0] spi_sd_soc_out;
   logic [3:0] spi_sd_soc_in;
   // Multiplex between SPI SD mode and QSPI proper
-  logic [3:0] spi_sd_sd_in, spi_sd_spih_in;
+  logic [3:0] spi_sd_sd_in, spi_sd_spih_in, spi_pmod_in;
 
   // Choose SoC input based on chip select
   assign spi_sd_soc_in =
-    ({4{~spi_cs_soc[0]}} & spi_sd_sd_in) | ({4{~spi_cs_soc[1]}} & spi_sd_spih_in);
+    ({4{~spi_cs_soc[0]}} & spi_sd_sd_in) | 
+    ({4{~spi_cs_soc[1]}} & spi_sd_spih_in) |
+    ({4{~spi_cs_soc[2]}} & spi_pmod_in);
 
   logic spi_sck_en;
-  logic [1:0] spi_cs_en;
+  logic [2:0] spi_cs_en;
   logic [3:0] spi_sd_en;
 
 `ifdef USE_SD
@@ -328,6 +337,17 @@ module cheshire_top_xilinx import cheshire_pkg::*; #(
   assign spi_sd_sd_in[2]  = 1'b0;
   assign spi_sd_sd_in[3]  = 1'b0;
 `endif
+
+  //////////////////////////
+  // SPI Testing Breakout //
+  //////////////////////////
+
+`ifdef USE_PMOD_SPI
+  assign pmod_spi_cs_o   = spi_cs_en[2] ? spi_cs_soc[2] : 1'b1;
+  assign pmod_spi_mosi_o = spi_sd_en[0] ? spi_sd_soc_out[0] : 1'b1;
+  assign spi_pmod_in     = {2'b0, pmod_spi_miso_i, 1'b0};
+  assign pmod_spi_sck_o  = spi_sck_en ? spi_sck_soc : 1'b1; 
+`endif /* USE_PMOD_SPI */
 
   ////////////
   //  QSPI  //

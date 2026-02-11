@@ -39,6 +39,7 @@
   `define USE_USB
   `define USE_STARTUPE2
   `define USE_QSPI
+  `define USE_PMOD_SPI
   `define USE_CFG_REGS
   `define USE_RAM_DELAY
   `define USE_NUM_LED 8

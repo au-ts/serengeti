@@ -219,8 +219,19 @@ set_property -dict { PACKAGE_PIN T23   IOSTANDARD LVCMOS33 } [get_ports { usb_dp
 set_property -dict { PACKAGE_PIN T20   IOSTANDARD LVCMOS33 } [get_ports { usb_dm_io[0] }]; #IO_L4P_T0_D04_14 Sch=ja_p[4]
 set_property -dict { PACKAGE_PIN T21   IOSTANDARD LVCMOS33 } [get_ports { usb_dp_io[0] }]; #IO_L4N_T0_D05_14 Sch=ja_n[4]
 
+# PMOD Header JB
+# Danger: no internal shunt on this pin. Use with external resistor for safety.
+#set_property -dict { PACKAGE_PIN V29   IOSTANDARD LVCMOS33 } [get_ports { jb[0] }]; #IO_L17P_T2_A14_D30_14 Sch=jb_p[1]
+#set_property -dict { PACKAGE_PIN V30   IOSTANDARD LVCMOS33 } [get_ports { jb[1] }]; #IO_L17N_T2_A13_D29_14 Sch=jb_n[1]
+#set_property -dict { PACKAGE_PIN V25   IOSTANDARD LVCMOS33 } [get_ports { jb[2] }]; #IO_L18P_T2_A12_D28_14 Sch=jb_p[2]
+#set_property -dict { PACKAGE_PIN W26   IOSTANDARD LVCMOS33 } [get_ports { jb[3] }]; #IO_L18N_T2_A11_D27_14 Sch=jb_n[2]
+#set_property -dict { PACKAGE_PIN T25   IOSTANDARD LVCMOS33 } [get_ports { jb[4] }]; #IO_L14P_T2_SRCC_14 Sch=jb_p[3]
+#set_property -dict { PACKAGE_PIN U25   IOSTANDARD LVCMOS33 } [get_ports { jb[5] }]; #IO_L14N_T2_SRCC_14 Sch=jb_n[3]
+#set_property -dict { PACKAGE_PIN U22   IOSTANDARD LVCMOS33 } [get_ports { jb[6] }]; #IO_L21P_T3_DQS_14 Sch=jb_p[4]
+#set_property -dict { PACKAGE_PIN U23   IOSTANDARD LVCMOS33 } [get_ports { jb[7] }]; #IO_L21N_T3_DQS_A06_D22_14 Sch=jb_n[4]
+
 ## PMOD Header JC
-# I2C breakout - JC has internal 200 ohm shunt, safer for external usage.
+# internal 200 ohm shunt
 #set_property -dict { PACKAGE_PIN AC26  IOSTANDARD LVCMOS33 } [get_ports { i2c_scl_io }]; #IO_L19P_T3_13 Sch=jc[1]
 #set_property -dict { PACKAGE_PIN AJ27  IOSTANDARD LVCMOS33 } [get_ports { i2c_sda_io }]; #IO_L20P_T3_13 Sch=jc[2]
 #set_property -dict { PACKAGE_PIN AH30  IOSTANDARD LVCMOS33 } [get_ports { jc[2] }]; #IO_L18N_T2_13 Sch=jc[3]
@@ -229,5 +240,16 @@ set_property -dict { PACKAGE_PIN T21   IOSTANDARD LVCMOS33 } [get_ports { usb_dp
 #set_property -dict { PACKAGE_PIN AG30  IOSTANDARD LVCMOS33 } [get_ports { jc[5] }]; #IO_L18P_T2_13 Sch=jc[8]
 #set_property -dict { PACKAGE_PIN AK30  IOSTANDARD LVCMOS33 } [get_ports { jc[6] }]; #IO_L15N_T2_DQS_13 Sch=jc[9]
 #set_property -dict { PACKAGE_PIN AK28  IOSTANDARD LVCMOS33 } [get_ports { jc[7] }]; #IO_L20N_T3_13 Sch=jc[10]
+
+# PMOD Header JD (SPI Testing Breakout)
+# internal 200 ohm shunt
+set_property -dict { PACKAGE_PIN V27   IOSTANDARD LVCMOS33 } [get_ports { pmod_spi_cs_o }]; #IO_L16N_T2_A15_D31_14 Sch=jd[1]
+set_property -dict { PACKAGE_PIN Y30   IOSTANDARD LVCMOS33 } [get_ports { pmod_spi_mosi_o }]; #IO_L8P_T1_13 Sch=jd[2]
+set_property -dict { PACKAGE_PIN V24   IOSTANDARD LVCMOS33 } [get_ports { pmod_spi_miso_i }]; #IO_L23N_T3_A02_D18_14 Sch=jd[3]
+set_property -dict { PACKAGE_PIN W22   IOSTANDARD LVCMOS33 } [get_ports { pmod_spi_sck_o }]; #IO_L24N_T3_A00_D16_14 Sch=jd[4]
+#set_property -dict { PACKAGE_PIN U24   IOSTANDARD LVCMOS33 } [get_ports { jd[4] }]; #IO_L23P_T3_A03_D19_14 Sch=jd[7]
+#set_property -dict { PACKAGE_PIN Y26   IOSTANDARD LVCMOS33 } [get_ports { jd[5] }]; #IO_L1P_T0_13 Sch=jd[8]
+#set_property -dict { PACKAGE_PIN V22   IOSTANDARD LVCMOS33 } [get_ports { jd[6] }]; #IO_L22N_T3_A04_D20_14 Sch=jd[9]
+#set_property -dict { PACKAGE_PIN W21   IOSTANDARD LVCMOS33 } [get_ports { jd[7] }]; #IO_L24P_T3_A01_D17_14 Sch=jd[10]
 
 # tclint-enable line-length, spacing
